@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cipher Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0a0a0c;
+            --panel: #16161a;
+            --accent: #00f2ff;
+            --text: #e0e0e0;
+        }
+
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Courier New', monospace; 
+            padding: 40px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+        }
+
+        #output { 
+            width: 80%; 
+            height: 200px; 
+            background: var(--panel); 
+            border: 1px solid #333; 
+            padding: 20px; 
+            margin: 20px 0; 
+            overflow-y: auto; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 10px 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+
+        button:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+        button:disabled { border-color: #444; color: #444; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .recording { animation: pulse 1.5s infinite; color: #ff4444 !important; border-color: #ff4444 !important; }
+
+        canvas { background: var(--panel); padding: 20px; border-radius: 8px; margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+    <h1>// SPEECH_STREAM_ANALYZER</h1>
+    <div id="status">STATUS: STANDBY</div>
+    
+    <div id="output">... awaiting input ...</div>
+    
+    <div>
+        <button id="startBtn">Initiate Record</button>
+        <button id="stopBtn" disabled>Terminate</button>
+    </div>
+
+    <canvas id="freqChart" width="800" height="300"></canvas>
+
+    <script>
+        const output = document.getElementById('output');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        
+        let recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = true;
+        let fullTranscript = "";
+
+        recognition.onresult = (e) => {
+            let latest = "";
+            for (let i = e.resultIndex; i < e.results.length; ++i) latest += e.results[i][0].transcript;
+            fullTranscript += latest + " ";
+            output.innerText = fullTranscript;
+        };
+
+        startBtn.onclick = () => {
+            recognition.start();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            status.innerText = "STATUS: RECORDING_ACTIVE";
+            status.classList.add('recording');
+        };
+
+        stopBtn.onclick = () => {
+            recognition.stop();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            status.innerText = "STATUS: PROCESSING_DATA";
+            status.classList.remove('recording');
+            analyzeData();
+        };
+
+        function analyzeData() {
+            const words = fullTranscript.toLowerCase().match(/\b\w+\b/g) || [];
+            const counts = {};
+            words.forEach(w => counts[w] = (counts[w] || 0) + 1);
+            const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 30);
+            
+            new Chart(document.getElementById('freqChart'), {
+                type: 'line',
+                data: {
+                    labels: sorted.map(i => i[0]),
+                    datasets: [{
+                        label: 'Frequency',
+                        data: sorted.map(i => i[1]),
+                        borderColor: '#00f2ff',
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(0, 242, 255, 0.05)'
+                    }]
+                },
+                options: { scales: { y: { ticks: { color: '#666' } }, x: { ticks: { color: '#666' } } } }
+            });
+        }
+    </script>
+</body>
+</html>
